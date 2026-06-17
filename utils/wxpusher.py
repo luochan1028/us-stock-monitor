@@ -1,6 +1,6 @@
 """
 WxPusher 微信推送模块
-文档: https://wxpusher.zxzd99.com/docs/
+文档: https://wxpusher.zjiecode.com/docs/
 """
 
 import requests
@@ -14,21 +14,14 @@ from config.settings import WX_PUSHER_APP_TOKEN, WX_PUSHER_UIDS
 class WxPusher:
     """WxPusher 推送客户端"""
 
-    API_URL = "https://wxpusher.zxzd99.com/api/v2/send/message"
+    API_URL = "https://wxpusher.zjiecode.com/api/send/message"
 
     def __init__(self, app_token=None, uids=None):
         self.app_token = app_token or WX_PUSHER_APP_TOKEN
         self.uids = uids or WX_PUSHER_UIDS
 
     def send_message(self, content, title="美股数据监控提醒", summary=None):
-        """
-        发送消息到微信
-
-        Args:
-            content: 消息内容 (支持 Markdown)
-            title: 消息标题
-            summary: 消息摘要 (用于通知栏显示)
-        """
+        """发送消息到微信"""
         if self.app_token == "your_app_token_here":
             print("[WxPusher] 请先配置 WX_PUSHER_APP_TOKEN")
             return False
@@ -37,7 +30,7 @@ class WxPusher:
             "appToken": self.app_token,
             "content": content,
             "summary": summary or title,
-            "contentType": 3,  # 3 = Markdown
+            "contentType": 3,
             "uids": self.uids,
         }
 
@@ -45,7 +38,7 @@ class WxPusher:
             response = requests.post(
                 self.API_URL,
                 json=payload,
-                timeout=10,
+                timeout=15,
             )
             result = response.json()
 
@@ -61,12 +54,7 @@ class WxPusher:
             return False
 
     def send_weekly_calendar(self, events):
-        """
-        发送每周数据日历
-
-        Args:
-            events: 本周事件列表
-        """
+        """发送每周数据日历 - 包含历史对比和仓位建议"""
         importance_emoji = {
             "critical": "🔴",
             "high": "🟡",
@@ -88,18 +76,49 @@ class WxPusher:
                 content += f"- **发布时间**: {dt.strftime('%Y-%m-%d %H:%M')} (北京时间)\n"
                 content += f"- **重要程度**: {imp.upper()}\n"
 
-                # 添加影响分析
                 if "impact_analysis" in config:
                     impact = config["impact_analysis"]
                     if "key_point" in impact:
                         content += f"- **核心关注**: {impact['key_point']}\n"
 
+                # 历史数据
+                if "historical_data" in config:
+                    hist = config["historical_data"][0]  # 最近一次
+                    content += f"\n**上次数据** ({hist['date']}):\n"
+                    content += f"- 实际: {hist['actual']} | 预期: {hist['expected']}\n"
+                    content += f"- **市场反应**: {hist['market_reaction']}\n"
+                    content += f"- **后续走势**: {hist['next_month_trend']}\n"
+
+                # 仓位建议
+                if "position_advice" in config:
+                    content += "\n**仓位建议**:\n"
+                    advice = config["position_advice"]
+                    if "bullish" in advice:
+                        content += f"- 看涨: {advice['bullish']}\n"
+                    if "bearish" in advice:
+                        content += f"- 看跌: {advice['bearish']}\n"
+                    if "neutral" in advice:
+                        content += f"- 中性: {advice['neutral']}\n"
+
                 content += "\n---\n\n"
 
-        # 添加说明
-        content += "\n> 📌 **说明**:\n"
+        # 美国大选信息
+        from config.data_calendar import US_ELECTION_CALENDAR
+        content += "## 🗳️ 美国大选日历\n\n"
+        for eid, edata in US_ELECTION_CALENDAR.items():
+            status_emoji = {
+                "completed": "✅",
+                "upcoming": "⏳",
+                "future": "🔮",
+            }
+            se = status_emoji.get(edata["status"], "📌")
+            content += f"- {se} **{edata['name']}** ({edata['date']}): {edata['impact']}\n"
+
+        content += "\n---\n\n"
+        content += "> 📌 **说明**:\n"
         content += "> - 系统将在数据发布前 **1天、1小时、15分钟** 分别推送提醒\n"
         content += "> - 🔴 极度重要 | 🟡 重要 | 🟢 一般\n"
+        content += "> - 仓位建议仅供参考，不构成投资建议\n"
 
         return self.send_message(
             content=content,
@@ -108,13 +127,7 @@ class WxPusher:
         )
 
     def send_countdown_reminder(self, event, minutes_remaining):
-        """
-        发送倒计时提醒
-
-        Args:
-            event: 事件字典
-            minutes_remaining: 剩余分钟数
-        """
+        """发送倒计时提醒 - 包含历史对比和仓位建议"""
         config = event["config"]
         dt = event["datetime"]
 
@@ -125,7 +138,6 @@ class WxPusher:
         }
         emoji = importance_emoji.get(config["importance"], "⚪")
 
-        # 根据剩余时间生成不同的提醒文案
         if minutes_remaining >= 1440:
             time_label = "**明天**"
         elif minutes_remaining >= 60:
@@ -141,7 +153,7 @@ class WxPusher:
         content += f"📅 北京时间: {dt.strftime('%Y-%m-%d %H:%M')}\n"
         content += f"⚡ 重要程度: {config['importance'].upper()}\n\n"
 
-        # 添加可能的市场影响
+        # 市场影响
         if "impact_analysis" in config:
             impact = config["impact_analysis"]
             content += "---\n\n"
@@ -162,7 +174,28 @@ class WxPusher:
                     content += f"- {point}\n"
                 content += "\n"
 
-        # 根据时间调整标题
+        # 历史数据对比
+        if "historical_data" in config:
+            hist = config["historical_data"][0]
+            content += "---\n\n"
+            content += "### 📊 上次数据对比\n\n"
+            content += f"**{hist['date']}** 数据:\n"
+            content += f"- 实际值: **{hist['actual']}** | 预期: {hist['expected']} | 前值: {hist['previous']}\n"
+            content += f"- **市场反应**: {hist['market_reaction']}\n"
+            content += f"- **后续走势**: {hist['next_month_trend']}\n"
+
+        # 仓位建议
+        if "position_advice" in config:
+            content += "\n---\n\n"
+            content += "### 💰 仓位操作建议\n\n"
+            advice = config["position_advice"]
+            if "bullish" in advice:
+                content += f"📈 **好于预期**: {advice['bullish']}\n"
+            if "bearish" in advice:
+                content += f"📉 **差于预期**: {advice['bearish']}\n"
+            if "neutral" in advice:
+                content += f"⚖️ **符合预期**: {advice['neutral']}\n"
+
         if minutes_remaining <= 15:
             title = f"⚡ 即将发布: {config['name']}"
         elif minutes_remaining <= 60:
@@ -177,10 +210,8 @@ class WxPusher:
         )
 
 
-# 测试代码
 if __name__ == "__main__":
     pusher = WxPusher()
-    # 测试消息
     pusher.send_message(
         content="## 测试消息\n\n美股数据监控系统已启动！",
         title="系统测试",
