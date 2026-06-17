@@ -1,6 +1,6 @@
 """
 WxPusher 微信推送模块
-文档: https://wxpusher.zxhd99.com/docs/
+文档: https://wxpusher.zxzd99.com/docs/
 """
 
 import requests
@@ -14,7 +14,7 @@ from config.settings import WX_PUSHER_APP_TOKEN, WX_PUSHER_UIDS
 class WxPusher:
     """WxPusher 推送客户端"""
 
-    API_URL = "https://wxpusher.zxhd99.com/api/v2/send/message"
+    API_URL = "https://wxpusher.zxzd99.com/api/v2/send/message"
 
     def __init__(self, app_token=None, uids=None):
         self.app_token = app_token or WX_PUSHER_APP_TOKEN
