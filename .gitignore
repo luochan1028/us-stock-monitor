@@ -1,0 +1,15 @@
+# Sensitive files
+.env
+config/local_settings.py
+
+# Logs
+logs/
+
+# Cache
+cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd

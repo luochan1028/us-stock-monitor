@@ -1,0 +1,40 @@
+# 美股数据监控系统 - 定时任务配置
+
+## Linux 云服务器 (使用 crontab)
+
+### 方式一: 每周推送数据日历 (每周一早上8点)
+```bash
+crontab -e
+# 添加以下行:
+0 8 * * 1 cd /path/to/us-stock-monitor && /usr/bin/python3 main.py --weekly >> /dev/null 2>&1
+```
+
+### 方式二: 每5分钟检查一次 (守护模式)
+```bash
+# 使用 nohup 或 systemd
+nohup python3 main.py --daemon &
+
+# 或使用 systemd (推荐)
+# 创建 /etc/systemd/system/us-stock-monitor.service
+```
+
+### 方式三: 混合模式 (推荐)
+```bash
+crontab -e
+
+# 每周一早上8点推送周历
+0 8 * * 1 cd /path/to/us-stock-monitor && /usr/bin/python3 main.py --weekly
+
+# 每5分钟检查是否需要推送倒计时提醒
+*/5 * * * * cd /path/to/us-stock-monitor && /usr/bin/python3 main.py >> logs/cron.log 2>&1
+```
+
+## Windows 服务器 (使用任务计划程序)
+
+### 方式一: 每周推送
+1. 打开 "任务计划程序"
+2. 创建基本任务 → 每周触发 → 执行: `python main.py --weekly`
+
+### 方式二: 持续运行
+1. 创建任务 → 开机启动 → 执行: `python main.py --daemon`
+
